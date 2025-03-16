@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html lang="ar">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>إدارة الأكواد العشوائية</title>
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.4.0/firebase-app.js";
+        import { getFirestore, collection, addDoc, getDocs, updateDoc, doc } from "https://www.gstatic.com/firebasejs/11.4.0/firebase-firestore.js";
+
+        const firebaseConfig = {
+            apiKey: "AIzaSyAzeOYd4_rppBX_qvYOvgXj6le6FEyO1ac",
+            authDomain: "database-87036.firebaseapp.com",
+            projectId: "database-87036",
+            storageBucket: "database-87036.firebasestorage.app",
+            messagingSenderId: "147777098452",
+            appId: "1:147777098452:web:c1c4c305d5e6e0cf0c2141",
+            measurementId: "G-8S0XCNF1Y7"
+        };
+        const app = initializeApp(firebaseConfig);
+        const db = getFirestore(app);
+
+        function generateCode(length = 6) {
+            const chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
+            let code = "";
+            for (let i = 0; i < length; i++) {
+                code += chars.charAt(Math.floor(Math.random() * chars.length));
+            }
+            return code;
+        }
+
+        async function updateCode(interval) {
+            let newCode = generateCode();
+            let now = new Date();
+            let nextUpdate;
+
+            switch (interval) {
+                case 'hourly': nextUpdate = new Date(now.setHours(now.getHours() + 1)); break;
+                case 'daily': nextUpdate = new Date(now.setDate(now.getDate() + 1)); break;
+                case 'weekly': nextUpdate = new Date(now.setDate(now.getDate() + 7)); break;
+                case 'monthly': nextUpdate = new Date(now.setMonth(now.getMonth() + 1)); break;
+                case 'yearly': nextUpdate = new Date(now.setFullYear(now.getFullYear() + 1)); break;
+                default: nextUpdate = new Date(now.setDate(now.getDate() + 1));
+            }
+
+            await addDoc(collection(db, "codes"), {
+                code: newCode,
+                nextUpdate: nextUpdate.toISOString(),
+                interval: interval,
+                isActive: true
+            });
+
+            loadCodes();
+        }
+
+        async function disableCode(id) {
+            await updateDoc(doc(db, "codes", id), {
+                isActive: false
+            });
+            loadCodes();
+        }
+
+        async function loadCodes() {
+            const querySnapshot = await getDocs(collection(db, "codes"));
+            const codesContainer = document.getElementById("codesList");
+            codesContainer.innerHTML = "";
+
+            querySnapshot.forEach((doc) => {
+                const data = doc.data();
+                const codeElement = document.createElement("div");
+                codeElement.classList.add("code-item");
+                codeElement.innerHTML = `
+                    <span>${data.code} (${data.interval})</span>
+                    <span>${data.isActive ? "✅ مفعل" : "❌ معطل"}</span>
+                    <button onclick="disableCode('${doc.id}')" ${!data.isActive ? "disabled" : ""}>تعطيل</button>
+                `;
+                codesContainer.appendChild(codeElement);
+            });
+        }
+
+        window.updateCode = updateCode;
+        window.disableCode = disableCode;
+        window.onload = loadCodes;
+    </script>
+    <style>
+        body { font-family: Arial, sans-serif; text-align: center; background: #f4f4f4; padding: 20px; }
+        .container { background: white; padding: 20px; border-radius: 10px; box-shadow: 0px 0px 10px rgba(0, 0, 0, 0.1); display: inline-block; }
+        h2 { color: #333; }
+        button { padding: 10px 20px; margin: 10px; border: none; border-radius: 5px; cursor: pointer; font-size: 16px; }
+        .generate { background: #28a745; color: white; }
+        .disable { background: #dc3545; color: white; }
+        .code-item { background: #e9e9e9; padding: 10px; margin: 5px; border-radius: 5px; display: flex; justify-content: space-between; align-items: center; }
+        .code-item button { background: #dc3545; color: white; padding: 5px 10px; font-size: 14px; }
+    </style>
+</head>
+<body>
+
+    <div class="container">
+        <h2>إدارة الأكواد العشوائية</h2>
+        <button class="generate" onclick="updateCode('hourly')">إنشاء كود كل ساعة</button>
+        <button class="generate" onclick="updateCode('daily')">إنشاء كود يومي</button>
+        <button class="generate" onclick="updateCode('weekly')">إنشاء كود أسبوعي</button>
+        <button class="generate" onclick="updateCode('monthly')">إنشاء كود شهري</button>
+        <button class="generate" onclick="updateCode('yearly')">إنشاء كود سنوي</button>
+
+        <h3>الأكواد النشطة</h3>
+        <div id="codesList"></div>
+    </div>
+
+</body>
+</html>
